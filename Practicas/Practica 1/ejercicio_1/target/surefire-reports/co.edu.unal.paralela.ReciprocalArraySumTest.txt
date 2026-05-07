@@ -1,0 +1,4 @@
+-------------------------------------------------------------------------------
+Test set: co.edu.unal.paralela.ReciprocalArraySumTest
+-------------------------------------------------------------------------------
+Tests run: 4, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 42.176 sec - in co.edu.unal.paralela.ReciprocalArraySumTest
