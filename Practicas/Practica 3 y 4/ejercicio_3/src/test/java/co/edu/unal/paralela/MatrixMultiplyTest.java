@@ -41,6 +41,7 @@ public class MatrixMultiplyTest extends TestCase {
         double expectedSpeedup;
         double actualSpeedup;
         int ntasks;
+        int ncores;
         boolean passed;
     }
 
@@ -127,6 +128,7 @@ public class MatrixMultiplyTest extends TestCase {
         res.expectedSpeedup = expectedSpeedup;
         res.actualSpeedup = actualSpeedup;
         res.ntasks = ntasks;
+        res.ncores = getNCores();
         res.passed = passed;
         return res;
     }
@@ -137,13 +139,14 @@ public class MatrixMultiplyTest extends TestCase {
     public void testPar512_x_512() {
         final ParResult r = parTestHelper(512);
         final String testName = "par512_x_512";
-        System.out.printf("[%s] %-30s   | tiempo= %9.3f ms | esperado= %6.3fx | real= %6.3fx | tareas= %d%s%n",
+        System.out.printf("[%s] %-30s   | tiempo= %9.3f ms | esperado= %6.3fx | real= %6.3fx | tareas= %d%s%n | nucleos= %d%s%n",
             r.passed ? "PASS" : "FAIL",
             testName,
             r.elapsedMillis,
             r.expectedSpeedup,
             r.actualSpeedup,
             r.ntasks,
+            r.ncores,
             r.passed ? "" : " | no alcanza el minimo esperado");
         final String errMsg = String.format("It was expected that the parallel implementation would run at " +
             "least %fx faster, but it only achieved %fx speedup", r.expectedSpeedup, r.actualSpeedup);
@@ -156,13 +159,14 @@ public class MatrixMultiplyTest extends TestCase {
     public void testPar768_x_768() {
         final ParResult r = parTestHelper(768);
         final String testName = "par768_x_768";
-        System.out.printf("[%s] %-30s   | tiempo= %9.3f ms | esperado= %6.3fx | real= %6.3fx | tareas= %d%s%n",
+        System.out.printf("[%s] %-30s   | tiempo= %9.3f ms | esperado= %6.3fx | real= %6.3fx | tareas= %d%s%n | nucleos= %d%s%n",
             r.passed ? "PASS" : "FAIL",
             testName,
             r.elapsedMillis,
             r.expectedSpeedup,
             r.actualSpeedup,
             r.ntasks,
+            r.ncores,
             r.passed ? "" : " | no alcanza el minimo esperado");
         final String errMsg = String.format("It was expected that the parallel implementation would run at " +
             "least %fx faster, but it only achieved %fx speedup", r.expectedSpeedup, r.actualSpeedup);

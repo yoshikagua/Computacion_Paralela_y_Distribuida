@@ -1,8 +1,6 @@
 package co.edu.unal.paralela;
 
-import java.util.Random;
 import java.util.concurrent.Phaser;
-
 import junit.framework.TestCase;
 
 public class OneDimAveragingPhaserTest extends TestCase {
@@ -10,7 +8,12 @@ public class OneDimAveragingPhaserTest extends TestCase {
     final static private int niterations = 12000;
 
     private static int getNCores() {
+        String ncoresStr = System.getenv("COURSERA_GRADER_NCORES");
+        if (ncoresStr == null) {
             return Runtime.getRuntime().availableProcessors();
+        } else {
+            return Integer.parseInt(ncoresStr);
+        }
     }
 
     private double[] createArray(final int N) {
@@ -20,7 +23,7 @@ public class OneDimAveragingPhaserTest extends TestCase {
     }
 
     /**
-     * Una implmenetación de referencia de runSequential, en caso de que se modifique accidentalmente el código fuente.
+     * Una implementación de referencia de runSequential, en caso de que se modifique accidentalmente el código fuente.
      */
     public void runSequential(final int iterations, double[] myNew, double[] myVal, final int n) {
         for (int iter = 0; iter < iterations; iter++) {
@@ -73,7 +76,6 @@ public class OneDimAveragingPhaserTest extends TestCase {
         }
     }
 
-
     private void checkResult(final double[] ref, final double[] output) {
         for (int i = 0; i < ref.length; i++) {
             String msg = "Mismatch on output at element " + i;
@@ -81,13 +83,23 @@ public class OneDimAveragingPhaserTest extends TestCase {
         }
     }
 
+    private static class ParResult {
+        double elapsedMillis;
+        double expectedSpeedup;
+        double actualSpeedup;
+        int ntasks;
+        int ncores;
+        boolean passed;
+    }
+
     /**
-     * Función helper para probar la implementación paralela de dos tareas.
+     * Función helper para probar la implementación paralela.
      *
      * @param N El tamaño del arreglo para hacer la prueba
-     * @return La mejora en rapidez lograda, No todas las pruebas utilizan esta información
+     * @param ntasks El número de hilos/tareas concurrentes
+     * @return El objeto ParResult con las métricas obtenidas
      */
-    private double parTestHelper(final int N, final int ntasks) {
+    private ParResult parTestHelper(final int N, final int ntasks) {
         // Crea una entrada de forma aleatoria
         double[] myNew = createArray(N);
         double[] myVal = createArray(N);
@@ -108,17 +120,45 @@ public class OneDimAveragingPhaserTest extends TestCase {
             checkResult(myValRef, myVal);
         }
 
-        return (double)(barrierEndTime - barrierStartTime) / (double)(fuzzyEndTime - fuzzyStartTime);
+        final long barrierTime = barrierEndTime - barrierStartTime;
+        final long fuzzyTime = fuzzyEndTime - fuzzyStartTime;
+
+        final double actualSpeedup = (double) barrierTime / (double) fuzzyTime;
+        final double expectedSpeedup = 1.1;
+        final boolean passed = actualSpeedup >= expectedSpeedup;
+
+        ParResult res = new ParResult();
+        res.elapsedMillis = (double) fuzzyTime; 
+        res.expectedSpeedup = expectedSpeedup;
+        res.actualSpeedup = actualSpeedup;
+        res.ntasks = ntasks;
+        res.ncores = getNCores();
+        res.passed = passed;
+        
+        return res;
     }
 
     /**
-     * Prueba sobre una entrada de gran tamaño.
+     * Prueba sobre una entrada de gran tamaño imprimiendo detalles técnicos completos en consola.
      */
     public void testFuzzyBarrier() {
-        final double expected = 1.1;
-        final double speedup = parTestHelper(4 * 1024 * 1024, getNCores() * 16);
+        final int ntasks = getNCores() * 16;
+        final ParResult r = parTestHelper(4 * 1024 * 1024, ntasks);
+        final String testName = "testFuzzyBarrier";
+        
+        System.out.printf("[%s] %-30s   | tiempo= %9.3f ms | esperado= %6.3fx | real= %6.3fx | tareas= %d | nucleos= %d%s%n",
+                r.passed ? "PASS" : "FAIL",
+                testName,
+                r.elapsedMillis,
+                r.expectedSpeedup,
+                r.actualSpeedup,
+                r.ntasks,
+                r.ncores,
+                r.passed ? "" : " | no alcanza el minimo esperado");
+
         final String errMsg = String.format("It was expected that the fuzzy barrier parallel implementation would " +
-                "run %fx faster than the barrier implementation, but it only achieved %fx speedup", expected, speedup);
-        assertTrue(errMsg, speedup >= expected);
+                "run %fx faster than the barrier implementation, but it only achieved %fx speedup", r.expectedSpeedup, r.actualSpeedup);
+        
+        assertTrue(errMsg, r.passed);
     }
 }

@@ -90,12 +90,9 @@ public final class OneDimAveragingPhaser {
     }
 
     /**
-     * Un ejemplo de implmentación paralela de promedio iterativo unidimiensional
+     * Un ejemplo de implementación paralela de promedio iterativo unidimensional
      * que utiliza los APIs phasers.arrive y Phaser.awaitAdvance para traslapar 
      * la computación con "barrier completion".
-     *
-     * PARA HACER: Completar este método basado en los métodos runSequential y
-     * runParallelBarrier.
      *
      * @param iterations El número de iteraciones que deben ser ejecutadas
      * @param myNew Un arreglo 'double' que inicia como el arreglo de salida
@@ -107,8 +104,9 @@ public final class OneDimAveragingPhaser {
             final double[] myNew, final double[] myVal, final int n,
             final int tasks) {
 
+        // Cada tarea tendrá su propio Phaser con 1 parte registrada (ella misma)
         Phaser[] phs = new Phaser[tasks];
-        for(int i=0;i<phs.length;i++){
+        for (int i = 0; i < phs.length; i++) {
             phs[i] = new Phaser(1);
         }
 
@@ -125,21 +123,41 @@ public final class OneDimAveragingPhaser {
                     final int left = i * (n / tasks) + 1;
                     final int right = (i + 1) * (n / tasks);
 
-                    for (int j = left; j <= right; j++) {
-                        threadPrivateMyNew[j] = (threadPrivateMyVal[j - 1]
-                                + threadPrivateMyVal[j + 1]) / 2.0;
-                    }
-//                    System.out.println("Arriving task: "+ i);
-                    phs[i].arrive();
-                    if(i-1>=0){
-//                        System.out.println("Arrived task "+ i +" Waiting for "+ (i-1));
-                        phs[i-1].awaitAdvance(1);
-                    }
-                    if(i+1<tasks){
-//                        System.out.println("Arrived task "+ i +" Waiting for "+ (i+1));
-                        phs[i+1].awaitAdvance(1);
+                    // Protección en caso de que el tamaño del problema sea menor que las tareas
+                    if (left <= right) {
+                        // 1. Calcular Frontera Izquierda
+                        threadPrivateMyNew[left] = (threadPrivateMyVal[left - 1]
+                                + threadPrivateMyVal[left + 1]) / 2.0;
+                        
+                        // 2. Calcular Frontera Derecha (si aplica)
+                        if (right > left) {
+                            threadPrivateMyNew[right] = (threadPrivateMyVal[right - 1]
+                                    + threadPrivateMyVal[right + 1]) / 2.0;
+                        }
                     }
 
+                    // 3. SEÑALIZACIÓN: Avisamos a los vecinos que nuestras fronteras están listas
+                    // Esto incrementa la fase de nuestro phaser dinámicamente de 'iter' a 'iter + 1'
+                    phs[i].arrive();
+
+                    // 4. TRABAJO ÚTIL (Fuzzy Región): Calculamos el interior mientras la barrera se resuelve
+                    if (left <= right) {
+                        for (int j = left + 1; j <= right - 1; j++) {
+                            threadPrivateMyNew[j] = (threadPrivateMyVal[j - 1]
+                                    + threadPrivateMyVal[j + 1]) / 2.0;
+                        }
+                    }
+
+                    // 5. SINCRONIZACIÓN: Esperamos a que los vecinos hayan completado sus fases correspondientes
+                    // awaitAdvance(iter) bloqueará solo si el phaser del vecino sigue en la fase 'iter'
+                    if (i - 1 >= 0) {
+                        phs[i - 1].awaitAdvance(iter);
+                    }
+                    if (i + 1 < tasks) {
+                        phs[i + 1].awaitAdvance(iter);
+                    }
+
+                    // Intercambio seguro de punteros para la siguiente iteración
                     double[] temp = threadPrivateMyNew;
                     threadPrivateMyNew = threadPrivateMyVal;
                     threadPrivateMyVal = temp;
@@ -148,6 +166,7 @@ public final class OneDimAveragingPhaser {
             threads[ii].start();
         }
 
+        // Esperar a que todos los hilos terminen la ejecución global
         for (int ii = 0; ii < tasks; ii++) {
             try {
                 threads[ii].join();
